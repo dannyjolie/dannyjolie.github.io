@@ -1,0 +1,130 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><script src="https://use.typekit.net/sxv8lum.js"></script><script>try{Typekit.load({ async: true });}catch(e){}</script><meta http-equiv="x-ua-compatible" content="ie=edge"><title>Mocha vs. async Redux action creators vs. Fetch - Antiweb dot no</title><meta name="description" content="Unit testing async action creators in Redux that use Fetch for AJAX requests"><meta name="viewport" content="width=device-width, initial-scale=1"><link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic' rel='stylesheet' type='text/css'><link rel="stylesheet" href="/css/normalize.css"><link rel="stylesheet" href="/css/main.css"><link rel="stylesheet" href="/css/syntax.css"><link rel="canonical" href="http://antiweb.no/posts/2016/03/30/testing-async-redux-action-creators-and-fetch/"><link rel="alternate" type="application/rss+xml" title="Antiweb dot no" href="http://antiweb.no/feed.xml"><script src="/js/vendor/modernizr-2.8.3.min.js"></script></head><body><div class="container"><header class="top"><div class="menubutton" id="menubutton"><span class="line"></span><span class="line"></span><span class="line"></span></div><div><h1><a href="/">Antiweb</a></h1><p>the chronicles of a slightly misanthropic web developer</p></div><nav><ul id="menu"><li><a href="/">Home</a></li><li><a href="/programming/">Code and stuff</a></li><li><a href="/about/">About</a></li></ul></nav></header><section class="content"><article><header><p class="post-date">March 30, 2016</p><h1>Mocha vs. async Redux action creators vs. Fetch</h1><p class="subtitle"></p></header><p> Let’s face it. Writing tests is a drag. Unit testing is a second class citizen in the development cycle, but like vacuum cleaning, it’s just something you have to do before unexpected new lifeforms are spawned.</p><p> Fortunately, the whole React + Redux pattern almost forces developers to write testable code from the get-go, and with that all sorted out, writing good unit tests is a hell of a lot more fun.</p><p> To those claiming that we should write tests before even thinking about the actual implementation: Welcome to the real world. Write code, write tests, modify code, modify tests, iterate, iterate, iterate. I’ve yet to work on a project where the specifications were so clear that I knew from the beginning, even vaguely, how my code would be structured. But I digress…</p><p> Async action creators in Redux are cool. It’s all properly documented here: [<a href="http://redux.js.org/docs/advanced/AsyncActions.html" target="_blank">http://redux.js.org/docs/advanced/AsyncActions.html</a>].</p><p> So assuming you have an application following this setup, how would you go about testing it? Let's start with some action creators: (disclaimer: There will be typos...)</p><figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><table style="border-spacing: 0"><tbody><tr><td class="gutter gl" style="text-align: right"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25</pre></td><td class="code"><pre><span class="c1">// src/js/actions.js</span>
+<span class="kr">export</span> <span class="kd">function</span> <span class="nx">syncActionA</span><span class="p">(</span><span class="nx">foo</span><span class="p">){</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="na">type</span><span class="p">:</span> <span class="s1">'SET_FOO'</span><span class="p">,</span> <span class="na">payload</span><span class="p">:</span> <span class="nx">foo</span><span class="p">}</span>
+<span class="p">}</span>
+<span class="kr">export</span> <span class="kd">function</span> <span class="nx">syncActionB</span><span class="p">(</span><span class="nx">foo</span><span class="p">){</span>
+    <span class="k">return</span> <span class="p">{</span> <span class="na">type</span><span class="p">:</span> <span class="s1">'SET_ANOTHER_FOO'</span><span class="p">,</span> <span class="na">payload</span><span class="p">:</span> <span class="nx">foo</span><span class="p">}</span>
+<span class="p">}</span>
+<span class="kr">export</span> <span class="kd">function</span> <span class="nx">asyncAction</span><span class="p">(</span><span class="nx">foo</span><span class="p">){</span>
+    <span class="k">return</span> <span class="kd">function</span><span class="p">(</span><span class="nx">dispatch</span><span class="p">){</span>
+        <span class="kd">let</span> <span class="nx">cb</span><span class="p">;</span>
+        <span class="k">if</span><span class="p">(</span><span class="nx">foo</span> <span class="o">===</span> <span class="s1">'something'</span><span class="p">){</span>
+            <span class="nx">cb</span> <span class="o">=</span> <span class="nx">syncActionA</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nx">cb</span> <span class="o">=</span> <span class="nx">syncActionB</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="nx">fetch</span><span class="p">(</span><span class="s1">'http://my.example.api/'</span> <span class="o">+</span> <span class="nb">encodeURIComponent</span><span class="p">(</span><span class="nx">foo</span><span class="p">),</span>
+            <span class="p">{</span>
+                <span class="na">headers</span><span class="p">:</span> <span class="k">new</span> <span class="nx">Headers</span><span class="p">(),</span>
+                <span class="na">credentials</span><span class="p">:</span> <span class="s1">'same-origin'</span>
+            <span class="p">})</span>
+        <span class="p">.</span><span class="nx">then</span><span class="p">(</span><span class="kd">function</span><span class="p">(</span><span class="nx">json</span><span class="p">){</span>
+            <span class="nx">dispatch</span><span class="p">(</span><span class="nx">cb</span><span class="p">(</span><span class="nx">json</span><span class="p">))</span>
+        <span class="p">})</span>
+    <span class="p">}</span>
+<span class="p">}</span><span class="w">
+</span></pre></td></tr></tbody></table></code></pre></figure><p> In the test specs we need to do some boilerplate stuff to test the synchronous actions. I'll get to the async action later. Using Mocha and Chai, it will look something like this:</p><figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><table style="border-spacing: 0"><tbody><tr><td class="gutter gl" style="text-align: right"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20</pre></td><td class="code"><pre><span class="c1">// npm packages</span>
+<span class="kr">import</span> <span class="nx">chai</span> <span class="nx">from</span> <span class="s1">'chai'</span>
+<span class="kr">import</span> <span class="nx">configureMockStore</span> <span class="nx">from</span> <span class="s1">'redux-mock-store'</span>
+<span class="c1">//</span>
+<span class="c1">// actions</span>
+<span class="kr">import</span> <span class="p">{</span> <span class="nx">syncActionA</span> <span class="p">}</span> <span class="nx">from</span> <span class="s1">'./src/js/actions'</span>
+<span class="c1">//</span>
+<span class="c1">//Bootstrapping</span>
+<span class="kr">const</span> <span class="nx">expect</span> <span class="o">=</span> <span class="nx">chai</span><span class="p">.</span><span class="nx">expect</span>
+<span class="kr">const</span> <span class="nx">mockStore</span> <span class="o">=</span> <span class="nx">configureMockStore</span><span class="p">()</span>
+<span class="c1">//</span>
+<span class="c1">// Testing the synchronous actions is pretty straightforward:</span>
+<span class="nx">describe</span><span class="p">(</span><span class="s1">'syncActionA'</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span>
+    <span class="nx">it</span><span class="p">(</span><span class="s1">'should return action type SET_FOO'</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span>
+        <span class="kr">const</span> <span class="nx">store</span> <span class="o">=</span> <span class="nx">mockStore</span><span class="p">({})</span>
+        <span class="kr">const</span> <span class="nx">expected</span> <span class="o">=</span> <span class="p">[{</span><span class="na">type</span><span class="p">:</span> <span class="s1">'SET_FOO'</span><span class="p">,</span> <span class="na">payload</span><span class="p">:</span> <span class="s1">'A string'</span><span class="p">}]</span>
+        <span class="nx">store</span><span class="p">.</span><span class="nx">dispatch</span><span class="p">(</span><span class="nx">syncActionA</span><span class="p">(</span><span class="s1">'A string'</span><span class="p">))</span>
+        <span class="nx">expect</span><span class="p">(</span><span class="nx">store</span><span class="p">.</span><span class="nx">getActions</span><span class="p">()).</span><span class="nx">to</span><span class="p">.</span><span class="nx">deep</span><span class="p">.</span><span class="nx">equal</span><span class="p">(</span><span class="nx">expected</span><span class="p">)</span>
+    <span class="p">})</span>
+<span class="p">})</span><span class="w">
+</span></pre></td></tr></tbody></table></code></pre></figure><p> This is essentially how to test an action. Just call <code>store.getActions()</code> after dispatching, and compare the dispatched actions to the expected value. Testing the async action that uses the Fetch API is basically a matter of mocking Fetch, and adding the thunk middleware to the mockStore config. So let's add that to the mix:</p><figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="kr">import</span> <span class="s1">'isomorphic-fetch'</span> <span class="c1">// Fetch polyfill for node and browsers alike</span>
+<span class="kr">import</span> <span class="nx">thunk</span> <span class="nx">from</span> <span class="s1">'redux-thunk'</span>
+<span class="kr">import</span> <span class="nx">fetchMock</span> <span class="nx">from</span> <span class="s1">'fetch-mock'</span>
+<span class="kr">import</span> <span class="p">{</span> <span class="nx">asyncAction</span> <span class="p">}</span> <span class="nx">from</span> <span class="s1">'./src/js/actions'</span></code></pre></figure><p>A little bit of setup:</p><figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="kr">const</span> <span class="nx">middlewares</span> <span class="o">=</span> <span class="p">[</span> <span class="nx">thunk</span> <span class="p">]</span>
+<span class="kr">const</span> <span class="nx">mockStore</span> <span class="o">=</span> <span class="nx">configureMockStore</span><span class="p">(</span><span class="nx">middlewares</span><span class="p">)</span>
+<span class="nx">fetchMock</span><span class="p">.</span><span class="nx">mock</span><span class="p">(</span><span class="s1">'^http://my.example.api'</span><span class="p">,</span> <span class="p">{</span><span class="na">data</span><span class="p">:</span> <span class="s1">'foo'</span><span class="p">})</span></code></pre></figure><p> <code>fetch-mock</code> has quite a few features, but here I'm simply instructing it to mock requests to any resource that begins with <code>http://my.example.api</code>, and return an object <code>{data: 'foo'}</code>. This works because <code>isomorphic-fetch</code> exposes a global fetch object that is wrapped by <code>fetch-mock</code>. With that in place, we can test <code>asyncAction</code>.</p><figure class="highlight"><pre><code class="language-javascript" data-lang="javascript"><span class="nx">describe</span><span class="p">(</span><span class="s1">'asyncAction'</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span>
+    <span class="nx">it</span><span class="p">(</span><span class="s1">'should call the API and trigger syncActionA when argument is "something"'</span><span class="p">,</span> <span class="kd">function</span><span class="p">(){</span>
+        <span class="kr">const</span> <span class="nx">store</span> <span class="o">=</span> <span class="nx">mockStore</span><span class="p">()</span>
+        <span class="nx">store</span><span class="p">.</span><span class="nx">dispatch</span><span class="p">(</span><span class="nx">asyncAction</span><span class="p">(</span><span class="s1">'something'</span><span class="p">))</span>
+        <span class="kr">const</span> <span class="nx">expected</span> <span class="o">=</span> <span class="p">[{</span><span class="na">type</span><span class="p">:</span> <span class="s1">'SET_FOO'</span><span class="p">,</span> <span class="na">payload</span><span class="p">:</span> <span class="p">{</span><span class="na">data</span><span class="p">:</span> <span class="s1">'foo'</span><span class="p">}}]</span>
+        <span class="nx">expect</span><span class="p">(</span><span class="nx">store</span><span class="p">.</span><span class="nx">getActions</span><span class="p">()).</span><span class="nx">to</span><span class="p">.</span><span class="nx">deep</span><span class="p">.</span><span class="nx">equal</span><span class="p">(</span><span class="nx">expected</span><span class="p">)</span>
+    <span class="p">})</span>
+<span class="p">})</span></code></pre></figure><p> And we're good! Repeat for <code>asyncAction('somethingElse')</code> and verify that syncActionB was dispatched. In the case that you have a longer chain of dispatch calls triggered by <code>asyncAction</code>, these will all be available in <code>store.getActions()</code>, so then it's simply a matter of writing the <code>expected</code> array correctly. Happy testing!</p><div id="disqus_thread" class="disqus-container"></div><script>
+    /**
+     * RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+     * LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables
+     */
+
+     var disqus_config = function () {
+     this.page.url = "http://antiweb.no/posts/2016/03/30/testing-async-redux-action-creators-and-fetch/"; // Replace PAGE_URL with your page's canonical URL variable
+     this.page.identifier = "/posts/2016/03/30/testing-async-redux-action-creators-and-fetch/"; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+     };
+
+    (function() { // DON'T EDIT BELOW THIS LINE
+      var d = document, s = d.createElement('script');
+
+      s.src = '//antiweb.disqus.com/embed.js';
+
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script><noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript><footer> <span><a href="/tags/redux">redux</a></span> <span><a href="/tags/mocha">mocha</a></span> <span><a href="/tags/javascript">javascript</a></span></footer></article></section></div><script>
+    if(!document.cookie || document.cookie.indexOf(' _dev=true') === -1){
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+            m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+        ga('create', 'UA-75690806-1', 'auto');
+        ga('send', 'pageview');
+    }
+</script><script type="text/javascript" src="/js/custom.js"></script></body></html>
